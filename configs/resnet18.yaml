@@ -1,0 +1,15 @@
+model: "resnet18"
+data_dir: "../chest_xray/chest_xray"
+batch_size: 32
+lr: 0.0001
+num_epochs: 5
+seed: 42
+
+augmentation: true
+weighted_sampling: true
+num_channels: 3
+normalize: true
+
+checkpoint_path: "checkpoints/pneumonia_resnet18.pth"
+
+thresholds: [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]

@@ -1,0 +1,15 @@
+model: "cnn"
+data_dir: "../chest_xray/chest_xray"
+batch_size: 32
+lr: 0.001
+num_epochs: 8
+seed: 42
+
+augmentation: false
+weighted_sampling: false
+num_channels: 1
+normalize: false
+
+checkpoint_path: "checkpoints/pneumonia_cnn_baseline.pth"
+
+thresholds: [0.4, 0.5, 0.6, 0.7, 0.8]
