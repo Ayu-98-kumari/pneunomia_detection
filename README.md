@@ -113,13 +113,124 @@ pneumonia_detection/
 ├── distill_best.py                # Entry point: train best distilled model (alpha=0.5)
 ├── distill_sweep.py               # Entry point: alpha comparison sweep
 ├── evaluate_distilled.py          # Entry point: evaluate distilled model without retraining
+├── plot_predictions.py            # Entry point: visualise X-ray predictions as a grid
+├── plot_metrics.py                # Entry point: generate comparison plots (ROC, confusion matrix, bar chart)
+├── save_with_metadata.py          # One-time: embed threshold metadata into existing checkpoints
+├── plots/                         # Saved plots (gitignored)
 ├── requirements.txt
 └── .gitignore
 ```
 
-## Knowledge Distillation
+## Key Models
 
-The distilled student (DeeperCNN, ~1M params) learns from the frozen ResNet-18 teacher (~11M params) using BCE-style soft + hard label loss.
+This project centres on three models that form the distillation pipeline. Everything else (baseline, weighted sampling, augmentation experiments) exists to build intuition before arriving at these three.
+
+### DeeperCNN — Standalone Student
+
+A 5-layer custom CNN trained entirely from scratch on grayscale chest X-rays.
+
+| Property | Value |
+|---|---|
+| Architecture | 5 Conv layers + Dropout (0.3, 0.4) + GAP |
+| Input | 1-channel grayscale, 224×224 |
+| Parameters | ~1M |
+| Training | 8 epochs, lr=0.001, weighted sampling, augmentation |
+| Best threshold | **0.9** |
+| Test accuracy | **87%** |
+| Macro F1 | **0.86** |
+
+```bash
+python train.py --config configs/deeper_cnn.yaml
+python evaluate.py --config configs/deeper_cnn.yaml
+```
+
+---
+
+### ResNet-18 — Teacher
+
+A pretrained ResNet-18 fine-tuned on 3-channel chest X-rays with ImageNet normalisation. This is the teacher whose soft predictions guide the student during distillation.
+
+| Property | Value |
+|---|---|
+| Architecture | Pretrained ResNet-18, custom FC head |
+| Input | 3-channel, 224×224, ImageNet normalised |
+| Parameters | ~11M |
+| Training | 5 epochs, lr=0.0001, weighted sampling, augmentation |
+| Best threshold | **0.95** |
+| Test accuracy | **92%** |
+| Macro F1 | **0.91** |
+
+```bash
+python train.py --config configs/resnet18.yaml
+python evaluate.py --config configs/resnet18.yaml
+```
+
+---
+
+### Distilled DeeperCNN — Student
+
+The same DeeperCNN architecture as above, but trained using knowledge distillation from the frozen ResNet-18 teacher instead of hard labels alone. It learns to mimic the teacher's soft probability outputs, which carries more signal than binary 0/1 labels.
+
+| Property | Value |
+|---|---|
+| Architecture | Same DeeperCNN as standalone (~1M params) |
+| Input | 1-channel grayscale, 224×224 |
+| Parameters | ~1M |
+| Training | 5 epochs, lr=0.001, alpha=0.5, weighted sampling, augmentation |
+| Best threshold | **0.85** |
+| Test accuracy | **88%** |
+| Macro F1 | **0.87** |
+
+```bash
+python distill_best.py --config configs/distillation_best.yaml
+python evaluate_distilled.py --config configs/distillation_best.yaml
+```
+
+---
+
+### Three-Model Comparison
+
+| Model | Params | Best Threshold | Accuracy | Macro F1 |
+|---|---|---|---|---|
+| DeeperCNN (standalone) | ~1M | 0.9 | 87% | 0.86 |
+| **Distilled DeeperCNN** | **~1M** | **0.85** | **88%** | **0.87** |
+| ResNet-18 (teacher) | ~11M | 0.95 | 92% | 0.91 |
+
+The distilled student has the same parameter count as the standalone DeeperCNN but closes the accuracy gap from 87% → 88% by learning from the teacher's soft predictions. The teacher still leads at 92%, but at 11× the parameter cost.
+
+To embed the best threshold into each checkpoint file (run once after training):
+```bash
+python save_with_metadata.py
+```
+
+To regenerate the comparison plots:
+```bash
+python plot_metrics.py
+```
+
+---
+
+## Visualisation
+
+`plot_predictions.py` samples chest X-ray images from the test set, runs inference, and saves a grid showing the true label vs. the model's predicted label. Correct predictions get a green border; incorrect ones get red.
+
+```bash
+# visualise predictions for any config (saves to plots/predictions_<config>.png)
+python plot_predictions.py --config configs/resnet18.yaml
+python plot_predictions.py --config configs/deeper_cnn.yaml
+python plot_predictions.py --config configs/distillation_best.yaml
+
+# override threshold or checkpoint
+python plot_predictions.py --config configs/resnet18.yaml --threshold 0.7
+python plot_predictions.py --config configs/resnet18.yaml --checkpoint path/to/model.pth
+
+# control number of images shown (default 16, must be a multiple of 4)
+python plot_predictions.py --config configs/resnet18.yaml --num_images 20
+```
+
+The script always shows a balanced mix — half correct predictions and half incorrect — so both success and failure cases are visible at a glance.
+
+## Knowledge Distillation
 
 The distilled student (DeeperCNN, ~1M params) learns from the frozen ResNet-18 teacher (~11M params) using a combined loss:
 
@@ -174,13 +285,13 @@ python evaluate_distilled.py --config configs/distillation_best.yaml --checkpoin
 
 ### Results (best config — alpha=0.5, threshold=0.85)
 
-| Model | Params | Accuracy | Macro F1 |
-|---|---|---|---|
-| Standalone DeeperCNN | ~1M | 87% | 0.86 |
-| **Distilled DeeperCNN** | **~1M** | **88%** | **0.87** |
-| Teacher ResNet-18 | ~11M | 92% | 0.91 |
+| Model | Params | Best Threshold | Accuracy | Macro F1 |
+|---|---|---|---|---|
+| Standalone DeeperCNN | ~1M | 0.9 | 87% | 0.86 |
+| **Distilled DeeperCNN** | **~1M** | **0.85** | **88%** | **0.87** |
+| Teacher ResNet-18 | ~11M | 0.95 | 92% | 0.91 |
 
-The distilled student matches the teacher's architecture footprint (~1M params) while closing the gap from 87% → 88% accuracy by learning from the teacher's soft predictions.
+The distilled student matches the standalone DeeperCNN's parameter footprint (~1M) while improving accuracy from 87% → 88% by learning from the teacher's soft predictions.
 
 ## Adding a New Experiment
 

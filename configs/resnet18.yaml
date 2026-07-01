@@ -12,4 +12,5 @@ normalize: true
 
 checkpoint_path: "checkpoints/pneumonia_resnet18.pth"
 
+threshold: 0.95
 thresholds: [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
