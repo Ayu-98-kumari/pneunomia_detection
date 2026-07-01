@@ -1,0 +1,13 @@
+student_model: "deeper"
+teacher_checkpoint: "checkpoints/pneumonia_resnet18.pth"
+data_dir: "../chest_xray/chest_xray"
+batch_size: 32
+lr: 0.001
+num_epochs: 5
+seed: 42
+
+alphas: [0.7, 0.5, 0.3]
+
+checkpoint_dir: "checkpoints"
+
+thresholds: [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95]

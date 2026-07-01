@@ -34,8 +34,16 @@ def main():
     _, _, test_loader, _ = get_dataloaders(config)
 
     model = get_model(config, pretrained=False)
-    state_dict = torch.load(checkpoint_path, map_location="cpu")
-    model.load_state_dict(state_dict)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+    # handle both plain state dicts and metadata-rich distillation checkpoints
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        model.load_state_dict(checkpoint["model_state_dict"])
+        print(f"Loaded metadata checkpoint — alpha: {checkpoint.get('alpha')}, "
+              f"threshold: {checkpoint.get('threshold')}")
+    else:
+        model.load_state_dict(checkpoint)
+
     model = model.to(device)
     model.eval()
 

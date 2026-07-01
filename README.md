@@ -89,23 +89,95 @@ Evaluation prints confusion matrix, classification report, and threshold analysi
 
 ```
 pneumonia_detection/
-├── configs/                 # Experiment configs (one per experiment)
+├── configs/                       # Experiment configs
 │   ├── baseline.yaml
 │   ├── weighted_sampling.yaml
 │   ├── augmentation.yaml
 │   ├── deeper_cnn.yaml
-│   └── resnet18.yaml
-├── src/                     # Source modules
-│   ├── dataset.py           # Data loading, transforms, weighted sampler
-│   ├── models.py            # CNN, DeeperCNN, ResNet-18 architectures
-│   ├── train.py             # Training and validation loops
-│   ├── evaluate.py          # Inference, metrics, threshold analysis
-│   └── utils.py             # Config loading, device selection, seeding
-├── train.py                 # Training entry point
-├── evaluate.py              # Evaluation entry point
+│   ├── resnet18.yaml
+│   ├── distillation_best.yaml     # Best distillation config (alpha=0.5)
+│   └── distillation_sweep.yaml    # Alpha sweep config (0.7, 0.5, 0.3)
+├── src/                           # Source modules
+│   ├── dataset.py                 # Data loading, transforms, weighted sampler, dual-transform dataset
+│   ├── models.py                  # CNN, DeeperCNN, ResNet-18 architectures
+│   ├── train.py                   # Standard training and validation loops
+│   ├── distill.py                 # Distillation training logic (shared by distill_best and distill_sweep)
+│   ├── evaluate.py                # Inference, metrics, threshold analysis
+│   └── utils.py                   # Config loading, device selection, seeding
+├── checkpoints/                   # Saved model weights (gitignored)
+├── train.py                       # Entry point: standard training
+├── evaluate.py                    # Entry point: evaluate standard models
+├── distill_best.py                # Entry point: train best distilled model (alpha=0.5)
+├── distill_sweep.py               # Entry point: alpha comparison sweep
+├── evaluate_distilled.py          # Entry point: evaluate distilled model without retraining
 ├── requirements.txt
 └── .gitignore
 ```
+
+## Knowledge Distillation
+
+The distilled student (DeeperCNN, ~1M params) learns from the frozen ResNet-18 teacher (~11M params) using BCE-style soft + hard label loss.
+
+The distilled student (DeeperCNN, ~1M params) learns from the frozen ResNet-18 teacher (~11M params) using a combined loss:
+
+```
+Loss = alpha * BCE(student_logit, sigmoid(teacher_logit))   ← soft label loss
+     + (1 - alpha) * BCE(student_logit, hard_label)         ← ground truth loss
+```
+
+The teacher is frozen throughout — only the student's weights are updated. Both teacher and student receive the same augmented image but through different transforms (3-channel ImageNet-normalized for the teacher, 1-channel grayscale for the student). A weighted sampler handles class imbalance during training. Best student checkpoint is saved based on validation accuracy.
+
+### Scripts
+
+| Script | Config | Purpose |
+|---|---|---|
+| `distill_best.py` | `configs/distillation_best.yaml` | Train final best model (alpha=0.5) from scratch |
+| `distill_sweep.py` | `configs/distillation_sweep.yaml` | Compare alpha=0.7, 0.5, 0.3 — useful for showing experimentation |
+| `evaluate_distilled.py` | `configs/distillation_best.yaml` | Evaluate already-trained distilled model, no retraining needed |
+
+### Training
+
+**Train the best known configuration (alpha=0.5, threshold=0.85):**
+
+```bash
+python distill_best.py --config configs/distillation_best.yaml
+```
+
+Trains from scratch, saves best model by validation accuracy, evaluates across all thresholds, and saves a final checkpoint with embedded metadata (alpha, threshold, class names).
+
+**Run the alpha comparison sweep (0.7, 0.5, 0.3):**
+
+```bash
+python distill_sweep.py --config configs/distillation_sweep.yaml
+```
+
+Trains three separate student models from scratch (one per alpha), evaluates each across all thresholds, and prints a summary table at the end. Use this to compare alphas and justify the choice of alpha=0.5.
+
+### Evaluation (no retraining)
+
+If the distilled model is already trained (checkpoint exists in `checkpoints/`), evaluate it directly without retraining:
+
+```bash
+python evaluate_distilled.py --config configs/distillation_best.yaml
+```
+
+This script handles both plain state dict checkpoints and metadata-rich checkpoints (saved by `distill_best.py` or from notebook experiments). It will print the alpha, threshold, and class info embedded in the checkpoint before running evaluation.
+
+To evaluate with a specific checkpoint:
+
+```bash
+python evaluate_distilled.py --config configs/distillation_best.yaml --checkpoint path/to/model.pth
+```
+
+### Results (best config — alpha=0.5, threshold=0.85)
+
+| Model | Params | Accuracy | Macro F1 |
+|---|---|---|---|
+| Standalone DeeperCNN | ~1M | 87% | 0.86 |
+| **Distilled DeeperCNN** | **~1M** | **88%** | **0.87** |
+| Teacher ResNet-18 | ~11M | 92% | 0.91 |
+
+The distilled student matches the teacher's architecture footprint (~1M params) while closing the gap from 87% → 88% accuracy by learning from the teacher's soft predictions.
 
 ## Adding a New Experiment
 
