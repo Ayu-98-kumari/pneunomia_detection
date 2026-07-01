@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 ## Experiments
 
-There are 5 experiments, each defined by a config file:
+There are 6 experiments in total:
 
 | # | Config | Architecture | Weighted Sampling | Augmentation | Epochs | LR |
 |---|--------|-------------|-------------------|--------------|--------|----|
@@ -38,16 +38,13 @@ There are 5 experiments, each defined by a config file:
 | 3 | `configs/augmentation.yaml` | 3-layer CNN | Yes | Yes | 15 | 0.001 |
 | 4 | `configs/deeper_cnn.yaml` | 5-layer CNN + Dropout | Yes | Yes | 8 | 0.001 |
 | 5 | `configs/resnet18.yaml` | Pretrained ResNet-18 | Yes | Yes | 5 | 0.0001 |
+| 6 | `configs/distillation_best.yaml` | DeeperCNN distilled from ResNet-18 | Yes | Yes | 5 | 0.001 |
+
+Experiments 1–5 use `train.py`. Experiment 6 (knowledge distillation) uses `distill_best.py` — see the [Knowledge Distillation](#knowledge-distillation) section below for details.
 
 ## Training
 
-Train a single experiment:
-
-```bash
-python train.py --config configs/baseline.yaml
-```
-
-Train all experiments one by one:
+Train experiments 1–5 (standard training):
 
 ```bash
 python train.py --config configs/baseline.yaml
@@ -55,6 +52,12 @@ python train.py --config configs/weighted_sampling.yaml
 python train.py --config configs/augmentation.yaml
 python train.py --config configs/deeper_cnn.yaml
 python train.py --config configs/resnet18.yaml
+```
+
+Train experiment 6 (knowledge distillation):
+
+```bash
+python distill_best.py --config configs/distillation_best.yaml
 ```
 
 Trained models are saved to the `checkpoints/` directory.
