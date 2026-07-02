@@ -115,6 +115,7 @@ pneumonia_detection/
 ├── evaluate_distilled.py          # Entry point: evaluate distilled model without retraining
 ├── plot_predictions.py            # Entry point: visualise X-ray predictions as a grid
 ├── plot_metrics.py                # Entry point: generate comparison plots (ROC, confusion matrix, bar chart)
+├── compare_models.py              # Entry point: side-by-side comparison of all 3 key models (predictions + metrics)
 ├── save_with_metadata.py          # One-time: embed threshold metadata into existing checkpoints
 ├── plots/                         # Saved plots (gitignored)
 ├── requirements.txt
