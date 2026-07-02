@@ -199,6 +199,16 @@ python evaluate_distilled.py --config configs/distillation_best.yaml
 
 The distilled student has the same parameter count as the standalone DeeperCNN but closes the accuracy gap from 87% → 88% by learning from the teacher's soft predictions. The teacher still leads at 92%, but at 11× the parameter cost.
 
+#### Metrics
+
+![Model Metrics Comparison](assets/comparison_metrics.png)
+
+#### Sample Predictions
+
+Each row is one model evaluated at its best threshold. Green border = correct, red = incorrect.
+
+![Chest X-Ray Predictions](assets/comparison_predictions.png)
+
 To embed the best threshold into each checkpoint file (run once after training):
 ```bash
 python save_with_metadata.py
@@ -206,7 +216,7 @@ python save_with_metadata.py
 
 To regenerate the comparison plots:
 ```bash
-python plot_metrics.py
+python compare_models.py
 ```
 
 ---
